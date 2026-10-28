@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>local.worklogstudio.calendarreader</string>
+  <key>CFBundleExecutable</key>
+  <string>CalendarReader</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleName</key>
+  <string>Worklog Studio Calendar Reader</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>อ่านชื่อและเวลาประชุมจากปฏิทินที่คุณเลือก เพื่อเสนอ worklog ให้ตรวจสอบก่อนลง Jira</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>อ่านปฏิทินที่คุณเลือกเพื่อเสนอ worklog ให้ตรวจสอบก่อนลง Jira</string>
+</dict>
+</plist>
