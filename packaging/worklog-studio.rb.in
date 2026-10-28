@@ -1,0 +1,25 @@
+class WorklogStudio < Formula
+  desc "Local Jira worklog and Mac Calendar review app"
+  homepage @HOMEPAGE@
+  url @ARCHIVE_URL@
+  version @VERSION@
+  sha256 @SHA256@
+
+  depends_on :macos
+  depends_on "python@3.14"
+
+  def install
+    libexec.install "app.py", "calendar_worklogs.py", "index.html", "app.js", "calendar.js",
+                    "styles.css", "mac_calendar.swift", "mac_calendar-Info.plist"
+    launcher = bin/"worklog-studio"
+    launcher.write <<~SH
+      #!/bin/sh
+      exec "#{formula_opt_bin("python@3.14")}/python3.14" "#{libexec}/app.py" "$@"
+    SH
+    launcher.chmod 0755
+  end
+
+  test do
+    assert_match "Worklog Studio #{version}", shell_output("#{bin}/worklog-studio --version")
+  end
+end
