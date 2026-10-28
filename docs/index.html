@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>คู่มือ Worklog Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a timesheet. Left rail like a ruler, flat ruled chapters, and the
+     Mon-Fri 8-hour grid (the app's own unit of work) as the recurring motif. */
+  :root {
+    --ground: #e9edf3;
+    --sheet: #fafbfd;
+    --ink: #101b2d;
+    --ink-soft: #4a5a72;
+    --rule: #c5cedc;
+    --rule-soft: #dbe1ea;
+    --blue: #1f5fd6;
+    --blue-wash: #e3ecfb;
+    --signal: #d9480f;
+    --signal-wash: #fde9df;
+    --good: #12805c;
+    --good-wash: #dff3ea;
+    --warn: #9a5b00;
+    --warn-wash: #fbefd5;
+    --bad: #b8324a;
+    --bad-wash: #fae3e8;
+    --code: #e3e8f0;
+    --font-display: 'Bai Jamjuree', 'Thonburi', 'Sukhumvit Set', sans-serif;
+    --font-body: 'IBM Plex Sans Thai', 'Thonburi', 'Sukhumvit Set', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0b121e; --sheet: #121b2b; --ink: #e7edf8; --ink-soft: #9aabc4;
+      --rule: #2b3b57; --rule-soft: #1e2b42; --blue: #7aa7ff; --blue-wash: #19284a;
+      --signal: #ff9a66; --signal-wash: #3a2418; --good: #52d1a6; --good-wash: #12332a;
+      --warn: #f1bd62; --warn-wash: #392c12; --bad: #ff8fa3; --bad-wash: #3a1a23; --code: #1b2a42;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0b121e; --sheet: #121b2b; --ink: #e7edf8; --ink-soft: #9aabc4;
+    --rule: #2b3b57; --rule-soft: #1e2b42; --blue: #7aa7ff; --blue-wash: #19284a;
+    --signal: #ff9a66; --signal-wash: #3a2418; --good: #52d1a6; --good-wash: #12332a;
+    --warn: #f1bd62; --warn-wash: #392c12; --bad: #ff8fa3; --bad-wash: #3a1a23; --code: #1b2a42;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 400 16px/1.8 var(--font-body);
+    padding-block: 0 96px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  a { color: var(--blue); }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 3px; }
+
+  .frame { max-width: 1180px; margin: 0 auto; }
+
+  /* ---------- masthead ---------- */
+  .mast { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 40px 56px; align-items: end; padding: 56px 0 44px; border-bottom: 2px solid var(--ink); }
+  .mast .kicker { margin: 0 0 14px; font: 500 13px/1.4 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+  .mast h1 { margin: 0; font: 700 clamp(34px, 5.4vw, 58px)/1.12 var(--font-display); letter-spacing: -.01em; text-wrap: balance; }
+  .mast .intro { max-width: 52ch; margin: 18px 0 26px; color: var(--ink-soft); font-size: 17px; }
+  .go { display: inline-flex; align-items: center; gap: 10px; padding: 10px 20px; border-radius: 6px; background: var(--ink); color: var(--sheet); font: 600 15px/1.4 var(--font-body); text-decoration: none; }
+  .go:hover { background: var(--blue); color: #fff; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 22px 0 0; padding: 0; list-style: none; font: 400 13px/1.5 var(--font-mono); color: var(--ink-soft); }
+
+  /* the week grid: Mon-Fri, one cell per hour */
+  .week { margin: 0; padding: 18px 18px 14px; background: var(--sheet); border: 1px solid var(--rule); }
+  .week-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .day { display: flex; flex-direction: column; gap: 3px; }
+  .day .cells { display: grid; grid-template-rows: repeat(8, 1fr); gap: 3px; height: 176px; }
+  .cell { background: var(--rule-soft); border-radius: 1px; }
+  .day.full .cell, .day.part .cell.on { background: var(--blue); }
+  .day.part .cell.on.today { background: var(--signal); }
+  .day.holiday .cells { background: repeating-linear-gradient(135deg, var(--rule) 0 2px, transparent 2px 8px); }
+  .day.holiday .cell { background: transparent; }
+  .day.future .cell { background: transparent; outline: 1px dashed var(--rule); outline-offset: -1px; }
+  .day b { display: block; margin-top: 8px; font: 600 14px/1.2 var(--font-display); }
+  .day small { font: 400 12px/1.3 var(--font-mono); color: var(--ink-soft); }
+  .week figcaption { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule-soft); font-size: 13px; line-height: 1.6; color: var(--ink-soft); }
+
+  /* ---------- body layout ---------- */
+  .page { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 0 64px; padding-top: 40px; }
+  .rail { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; font-size: 14px; }
+  .rail h2 { margin: 22px 0 6px; font: 500 12px/1.4 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+  .rail h2:first-child { margin-top: 0; }
+  .rail a { display: block; padding: 4px 0 4px 14px; border-left: 2px solid var(--rule); color: var(--ink-soft); text-decoration: none; line-height: 1.5; }
+  .rail a:hover { color: var(--ink); }
+  .rail a[aria-current="true"] { border-left-color: var(--signal); color: var(--ink); font-weight: 600; }
+
+  main { min-width: 0; }
+  .chapter { padding: 44px 0 12px; border-top: 1px solid var(--rule); }
+  .chapter:first-child { border-top: 0; padding-top: 0; }
+  .chapter > header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin-bottom: 20px; }
+  .tag { font: 500 12px/1.4 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--signal); }
+  h2.title { margin: 0; font: 700 clamp(26px, 3.4vw, 36px)/1.25 var(--font-display); text-wrap: balance; }
+  .lede { max-width: 62ch; margin: 6px 0 0; color: var(--ink-soft); }
+  h3 { margin: 30px 0 8px; font: 600 19px/1.4 var(--font-display); }
+  p { margin: 10px 0; max-width: 70ch; }
+  ul, ol { margin: 10px 0; padding-left: 22px; max-width: 70ch; }
+  li { margin: 5px 0; }
+  li::marker { color: var(--ink-soft); }
+  strong { font-weight: 600; }
+
+  code, kbd { padding: 1px 6px; border-radius: 3px; background: var(--code); font: 400 .88em/1.5 var(--font-mono); }
+  kbd { border: 1px solid var(--rule); border-bottom-width: 2px; background: var(--sheet); }
+  pre { max-width: 70ch; margin: 12px 0; padding: 14px 18px; overflow-x: auto; background: var(--code); border-radius: 4px; font: 400 14px/1.7 var(--font-mono); }
+  pre code { padding: 0; background: none; font-size: 1em; }
+  .ui { display: inline-block; padding: 0 9px; border: 1px solid var(--rule); border-radius: 4px; background: var(--sheet); font: 500 .88em/1.7 var(--font-body); white-space: nowrap; }
+
+  .callout { max-width: 70ch; margin: 18px 0; padding: 12px 18px; border-radius: 4px; background: var(--blue-wash); }
+  .callout.warn { background: var(--warn-wash); }
+  .callout.stop { background: var(--bad-wash); }
+  .callout.ok { background: var(--good-wash); }
+  .callout > :first-child { margin-top: 0; }
+  .callout > :last-child { margin-bottom: 0; }
+  .callout .label { display: block; margin-bottom: 2px; font: 500 12px/1.6 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+
+  /* tables */
+  .scroll { overflow-x: auto; margin: 14px 0; }
+  table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 15px; line-height: 1.6; }
+  th, td { padding: 9px 16px 9px 0; border-bottom: 1px solid var(--rule-soft); text-align: left; vertical-align: top; }
+  th { border-bottom: 1px solid var(--ink); font: 500 12px/1.6 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+  td:first-child { font-weight: 500; }
+  .pill { display: inline-block; padding: 0 10px; border-radius: 999px; font-size: 13px; line-height: 1.7; white-space: nowrap; background: var(--code); }
+  .pill.good { background: var(--good-wash); color: var(--good); }
+  .pill.warn { background: var(--warn-wash); color: var(--warn); }
+  .pill.bad { background: var(--bad-wash); color: var(--bad); }
+
+  /* first-run steps: a real sequence, so it is numbered and can be ticked off */
+  .progress { display: flex; align-items: center; gap: 14px; max-width: 70ch; margin: 18px 0 8px; font: 400 13px/1.4 var(--font-mono); color: var(--ink-soft); }
+  .progress .bar { flex: 1; height: 6px; background: var(--rule-soft); border-radius: 3px; overflow: hidden; }
+  .progress .bar i { display: block; width: 0; height: 100%; background: var(--good); transition: width .25s; }
+  .steps { max-width: 760px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+  .step { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 0 14px; padding-bottom: 28px; counter-increment: step; }
+  .step::before { content: ""; position: absolute; left: 21px; top: 44px; bottom: 4px; width: 1px; background: var(--rule); }
+  .step:last-child::before { display: none; }
+  .step .n { display: grid; place-items: center; width: 44px; height: 44px; border: 1.5px solid var(--ink); border-radius: 50%; background: var(--sheet); font: 600 18px/1 var(--font-display); }
+  .step .n::before { content: counter(step); }
+  .step.done .n { background: var(--good); border-color: var(--good); color: #fff; }
+  .step.done .n::before { content: "\2713"; }
+  .step h3 { margin: 6px 0 4px; }
+  .step .tick { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 14px; color: var(--ink-soft); cursor: pointer; }
+  .step .tick input { width: 16px; height: 16px; accent-color: var(--good); }
+  .step > div > :last-child { margin-bottom: 0; }
+
+  /* a miniature of the settings form */
+  .form { max-width: 560px; margin: 14px 0; border: 1px solid var(--rule); background: var(--sheet); }
+  .form > div { display: grid; grid-template-columns: 150px minmax(0, 1fr); border-bottom: 1px solid var(--rule-soft); }
+  .form > div:last-child { border-bottom: 0; }
+  .form dt, .form dd { margin: 0; padding: 9px 14px; font-size: 14px; line-height: 1.6; }
+  .form dt { color: var(--ink-soft); background: color-mix(in srgb, var(--code) 55%, transparent); }
+  .form dd { font-family: var(--font-mono); font-size: 13.5px; overflow-wrap: anywhere; }
+  .form dd em { font: normal 400 13px var(--font-body); color: var(--ink-soft); }
+
+  /* choose-a-route table */
+  .routes td:last-child { white-space: nowrap; }
+
+  details { max-width: 70ch; border-top: 1px solid var(--rule-soft); }
+  details:last-of-type { border-bottom: 1px solid var(--rule-soft); }
+  summary { padding: 12px 0; cursor: pointer; font-weight: 500; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font: 400 20px/1.4 var(--font-mono); color: var(--ink-soft); }
+  details[open] summary::after { content: "\2212"; }
+  details > :not(summary) { margin-top: 0; }
+  details p { margin-bottom: 14px; }
+
+  footer { margin-top: 56px; padding-top: 16px; border-top: 2px solid var(--ink); font: 400 13px/1.7 var(--font-mono); color: var(--ink-soft); }
+
+  @media (max-width: 900px) {
+    .mast { grid-template-columns: minmax(0, 1fr); padding-top: 36px; }
+    .page { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .rail { position: static; max-height: none; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 14px; margin-bottom: 8px; border-bottom: 1px solid var(--rule); }
+    .rail h2 { display: none; }
+    .rail a { flex: none; padding: 5px 12px; border: 1px solid var(--rule); border-radius: 999px; white-space: nowrap; }
+    .rail a[aria-current="true"] { border-color: var(--signal); }
+  }
+  @media (max-width: 520px) {
+    body { font-size: 15.5px; }
+    .form > div { grid-template-columns: minmax(0, 1fr); }
+    .day .cells { height: 140px; }
+    .step { grid-template-columns: 36px minmax(0, 1fr); gap: 0 10px; }
+    .step .n { width: 36px; height: 36px; font-size: 16px; }
+    .step::before { left: 17px; top: 36px; }
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <header class="mast">
+    <div>
+      <p class="kicker">Worklog Studio · เวอร์ชัน 0.1.1</p>
+      <h1>ลงเวลาให้ครบ 8 ชั่วโมงต่อวัน โดยตรวจก่อนส่งทุกครั้ง</h1>
+      <p class="intro">คู่มือสำหรับแอปบน macOS ที่ตรวจและบันทึก worklog ลง Jira Cloud ผ่านหน้าเว็บในเครื่องคุณเอง ผู้ใช้ใหม่เริ่มที่การตั้งค่าครั้งแรก ใช้เวลาประมาณ 5 นาที</p>
+      <a class="go" href="#setup">เริ่มตั้งค่า Jira <span aria-hidden="true">&darr;</span></a>
+      <ul class="meta">
+        <li>127.0.0.1:8765</li>
+        <li>ไม่ส่งเวลาเองอัตโนมัติ</li>
+        <li>ไม่ต้องติดตั้งแพ็กเกจเสริม</li>
+      </ul>
+    </div>
+
+    <figure class="week">
+      <div class="week-grid" aria-hidden="true">
+        <div class="day full"><div class="cells"><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i></div><b>จ.</b><small>8 ชม.</small></div>
+        <div class="day full"><div class="cells"><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i></div><b>อ.</b><small>8 ชม.</small></div>
+        <div class="day holiday"><div class="cells"><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i></div><b>พ.</b><small>หยุด BOT</small></div>
+        <div class="day part"><div class="cells"><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell on"></i><i class="cell on"></i><i class="cell on today"></i><i class="cell on"></i><i class="cell on"></i></div><b>พฤ.</b><small>5 / 8 ชม.</small></div>
+        <div class="day future"><div class="cells"><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i></div><b>ศ.</b><small>ยังไม่ถึง</small></div>
+      </div>
+      <figcaption>ตัวอย่างหน้าสรุปรายสัปดาห์: หนึ่งช่องคือหนึ่งชั่วโมง วันหยุดตามปฏิทิน BOT ไม่มีเป้า วันที่ยังไม่ถึงไม่นับว่าค้าง</figcaption>
+    </figure>
+  </header>
+
+  <div class="page">
+    <nav class="rail" aria-label="สารบัญ">
+      <h2>เริ่มต้น</h2>
+      <a href="#install">ติดตั้งและเปิดแอป</a>
+      <a href="#setup">ตั้งค่า Jira ครั้งแรก</a>
+      <h2>ใช้งาน</h2>
+      <a href="#which">เลือกวิธีลงเวลา</a>
+      <a href="#board">ลงเวลาจากบอร์ด</a>
+      <a href="#calendar">ลงเวลาจาก Mac Calendar</a>
+      <a href="#today">Today Sync</a>
+      <a href="#weekly">สรุปรายสัปดาห์</a>
+      <a href="#history">ประวัติ Sync</a>
+      <h2>อ้างอิง</h2>
+      <a href="#data">ข้อมูลและความปลอดภัย</a>
+      <a href="#faq">แก้ปัญหา</a>
+    </nav>
+
+    <main>
+
+      <!-- ===== INSTALL ===== -->
+      <section class="chapter" id="install">
+        <header>
+          <span class="tag">เริ่มต้น</span>
+          <h2 class="title">ติดตั้งและเปิดแอป</h2>
+        </header>
+        <h3>สิ่งที่ต้องมี</h3>
+        <ul>
+          <li>บัญชี Jira Cloud ที่มีสิทธิ์ <strong>Browse projects</strong> และ <strong>Work on issues</strong> และเปิด Time tracking แล้ว</li>
+          <li>Jira API token ของบัญชีคุณเอง สร้างในขั้นตอนถัดไป</li>
+          <li>ถ้าจะใช้ Mac Calendar: ปฏิทินบริษัทต้องแสดงอยู่ในแอป Calendar ของ Mac และติดตั้ง Xcode Command Line Tools (<code>xcode-select --install</code>)</li>
+        </ul>
+        <h3>คำสั่ง</h3>
+<pre><code>brew install imfeemily/tap/worklog-studio
+worklog-studio</code></pre>
+        <p>จากนั้นเปิด <code>http://127.0.0.1:8765</code> ในเบราว์เซอร์ ถ้ายังไม่เคยตั้งค่า แอปจะพาไปหน้า <span class="ui">ตั้งค่า Jira</span> เอง</p>
+        <ul>
+          <li>หยุดแอปด้วย <kbd>Ctrl</kbd> + <kbd>C</kbd> ใน Terminal ที่รันอยู่</li>
+          <li>อัปเดตด้วย <code>brew upgrade worklog-studio</code> การตั้งค่าและประวัติไม่หาย</li>
+          <li>ถ้าเปิดไม่ได้เพราะพอร์ต 8765 ถูกใช้ แสดงว่ามีตัวเดิมรันค้างอยู่ ให้หยุดตัวเดิมก่อน</li>
+        </ul>
+
+        <h3>ปิด Terminal ไปแล้ว แอปยังรันอยู่ จะหยุดอย่างไร</h3>
+        <p>ถ้ากดปิดหน้าต่าง Terminal เดิม แอปอาจยังรันอยู่เบื้องหลัง เปิด Terminal ใหม่แล้วทำตามนี้:</p>
+        <ol>
+          <li>หาโปรเซสที่ถือพอร์ต 8765:
+<pre><code>lsof -nP -iTCP:8765 -sTCP:LISTEN</code></pre>
+            ในผลลัพธ์ ตัวเลขใต้คอลัมน์ <code>PID</code> คือรหัสโปรเซส ถ้าไม่มีผลลัพธ์ แปลว่าแอปไม่ได้รันอยู่แล้ว</li>
+          <li>หยุดโปรเซสนั้น (แทน <code>12345</code> ด้วย PID ที่ได้):
+<pre><code>kill 12345</code></pre></li>
+          <li>ตรวจซ้ำด้วยคำสั่งในข้อ 1 ถ้าไม่มีผลลัพธ์แล้ว แปลว่าหยุดสำเร็จ</li>
+        </ol>
+        <p>ถ้าโปรเซสยังไม่หยุด ใช้ <code>kill -9 12345</code> แทน</p>
+        <p>คำสั่งลัดที่หยุดทันทีโดยไม่ต้องดู PID:</p>
+<pre><code>kill $(lsof -tiTCP:8765 -sTCP:LISTEN)</code></pre>
+        <div class="callout warn">
+          <span class="label">ตรวจก่อนสั่งหยุด</span>
+          <p>คำสั่งนี้หยุดโปรเซสใดก็ตามที่ถือพอร์ต 8765 อยู่ ถ้าไม่แน่ใจว่าเป็นของ Worklog Studio ให้รันคำสั่งในข้อ 1 ดูก่อน</p>
+        </div>
+      </section>
+
+      <!-- ===== SETUP ===== -->
+      <section class="chapter" id="setup">
+        <header>
+          <span class="tag">เริ่มต้น</span>
+          <h2 class="title">ตั้งค่า Jira ครั้งแรก</h2>
+          <p class="lede">ต้องทำก่อนใช้ฟีเจอร์อื่นทั้งหมด ติ๊กช่อง "ทำแล้ว" ในแต่ละขั้นเพื่อเก็บความคืบหน้า (บันทึกไว้ในเบราว์เซอร์นี้)</p>
+        </header>
+
+        <div class="progress"><span id="progressText">ทำแล้ว 0 / 5 ขั้น</span><span class="bar"><i id="progressBar"></i></span></div>
+
+        <ol class="steps" id="steps">
+          <li class="step" data-step="token">
+            <span class="n" aria-hidden="true"></span>
+            <div>
+              <h3>สร้าง API token</h3>
+              <p>เปิด <code>id.atlassian.com/manage-profile/security/api-tokens</code> ล็อกอินด้วยบัญชี Atlassian ที่ใช้กับ Jira กด <strong>Create API token</strong> ตั้งชื่อ เช่น <code>Worklog Studio</code> เลือกวันหมดอายุ แล้วคัดลอก token ไว้ Atlassian แสดงให้ดูครั้งเดียว</p>
+              <label class="tick"><input type="checkbox"> ทำแล้ว</label>
+            </div>
+          </li>
+          <li class="step" data-step="board">
+            <span class="n" aria-hidden="true"></span>
+            <div>
+              <h3>หา Board ID</h3>
+              <p>เปิดบอร์ดใน Jira แล้วดู URL ที่ลงท้ายด้วย <code>/boards/9146</code> ตัวเลขท้ายคือ Board ID ใส่เฉพาะตัวเลข ไม่ใช่ URL ทั้งเส้น ใส่ได้สูงสุด 10 บอร์ด คั่นด้วยจุลภาค</p>
+              <label class="tick"><input type="checkbox"> ทำแล้ว</label>
+            </div>
+          </li>
+          <li class="step" data-step="form">
+            <span class="n" aria-hidden="true"></span>
+            <div>
+              <h3>กรอกฟอร์มในแท็บ "ตั้งค่า Jira"</h3>
+              <dl class="form">
+                <div><dt>Jira site URL</dt><dd>https://your-org.atlassian.net <em>(ต้องเป็น https)</em></dd></div>
+                <div><dt>อีเมลบัญชี Jira</dt><dd>you@company.com <em>(อีเมลที่ใช้ล็อกอิน)</em></dd></div>
+                <div><dt>Jira API token</dt><dd>•••••••• <em>กด "แสดง" เพื่อตรวจว่าวางถูก</em></dd></div>
+                <div><dt>Timezone</dt><dd>Asia/Bangkok <em>(ใช้จัดวันของ worklog)</em></dd></div>
+                <div><dt>Board IDs ที่ใช้บ่อย</dt><dd>6648, 9146</dd></div>
+              </dl>
+              <p>กด <span class="ui">บันทึกการตั้งค่า</span> ภายหลังถ้าแก้ค่าอื่น ช่อง token เว้นว่างได้ ระบบใช้ token เดิม</p>
+              <label class="tick"><input type="checkbox"> ทำแล้ว</label>
+            </div>
+          </li>
+          <li class="step" data-step="test">
+            <span class="n" aria-hidden="true"></span>
+            <div>
+              <h3>ทดสอบการเชื่อมต่อ</h3>
+              <p>กด <span class="ui">ทดสอบค่าที่บันทึก</span> ถ้าสำเร็จ ป้ายสถานะเปลี่ยนเป็น <span class="pill good">พร้อมเชื่อมต่อ</span> ถ้าไม่ผ่าน ดูหัวข้อ <a href="#faq">แก้ปัญหา</a></p>
+              <label class="tick"><input type="checkbox"> ทำแล้ว</label>
+            </div>
+          </li>
+          <li class="step" data-step="rules">
+            <span class="n" aria-hidden="true"></span>
+            <div>
+              <h3>ตั้งกฎจับคู่ประชุมกับการ์ด <small style="font-weight:400;color:var(--ink-soft)">(ข้ามได้ถ้าไม่ใช้ Calendar)</small></h3>
+              <p>อยู่ในแท็บเดียวกัน ส่วน "จับคู่ประชุมกับการ์ด Jira" ต้องบันทึกการเชื่อมต่อให้ผ่านก่อน</p>
+              <ol>
+                <li>กด <span class="ui">+ เพิ่มกฎการจับคู่</span> (สูงสุด 30 กฎ) แต่ละกฎมีชื่อกฎ คำค้นในชื่อประชุม (คั่นด้วยจุลภาค) Jira Issue Key หรือ URL แบบ <code>/browse/KEY</code> และช่องติ๊ก "วันลา"</li>
+                <li>ตั้ง <strong>การ์ดสำรองเมื่อไม่ตรงกฎ</strong> สำหรับประชุมที่ไม่ตรงกฎใดเลย</li>
+                <li>ลองพิมพ์ชื่อประชุมในช่อง "ลองชื่อประชุมก่อนบันทึก" แล้วกด <span class="ui">ทดสอบการจับคู่</span> ใช้ร่างที่ยังไม่บันทึกได้</li>
+                <li>กด <span class="ui">บันทึกการจับคู่</span> ระบบตรวจสิทธิ์อ่านการ์ดทุกใบใน Jira ก่อนบันทึก</li>
+              </ol>
+              <div class="scroll">
+              <table>
+                <thead><tr><th>กฎเริ่มต้น</th><th>คำค้น</th><th>การ์ด</th></tr></thead>
+                <tbody>
+                  <tr><td>IT Delivery Alignment</td><td>IT Delivery Alignment</td><td><code>KNP-5</code></td></tr>
+                  <tr><td>วันลา</td><td>ลา, leave, vacation, pto, ooo ...</td><td><code>KNP-46</code></td></tr>
+                  <tr><td>Sprint Ceremony</td><td>stand up, planning, refinement, retro ...</td><td><code>KNP-49</code></td></tr>
+                  <tr><td>การ์ดสำรอง</td><td>ที่เหลือทั้งหมด</td><td><code>KNP-50</code></td></tr>
+                </tbody>
+              </table>
+              </div>
+              <p>กฎเรียงจากบนลงล่าง กฎแรกที่ตรงชนะ คำภาษาอังกฤษต้องตรงเป็นคำเต็มและไม่สนตัวพิมพ์ ส่วนคำไทยจับแบบมีอยู่ในชื่อ ปรับกฎให้ตรงกับทีมของคุณ</p>
+              <label class="tick"><input type="checkbox"> ทำแล้ว</label>
+            </div>
+          </li>
+        </ol>
+
+        <div class="callout warn">
+          <span class="label">เรื่อง token</span>
+          <p>แอปเก็บ API token เป็นข้อความปกติในไฟล์ใต้ <code>~/Library/Application Support/Worklog Studio/</code> ซึ่งจำกัดสิทธิ์ให้เจ้าของเครื่องเท่านั้น อย่าอัปโหลดโฟลเดอร์นี้ขึ้น GitHub หรือแชร์ไฟล์สำรองให้ผู้อื่น</p>
+        </div>
+        <details>
+          <summary>ตั้งค่าผ่านตัวแปรสภาพแวดล้อมแทนได้ไหม</summary>
+          <p>ได้ ใช้ <code>JIRA_BASE_URL</code>, <code>JIRA_EMAIL</code>, <code>JIRA_API_TOKEN</code> และ <code>WORKLOG_TIMEZONE</code> เป็นค่าสำรอง แต่ค่าที่บันทึกในหน้าตั้งค่าจะมาก่อน</p>
+        </details>
+      </section>
+
+      <!-- ===== WHICH ===== -->
+      <section class="chapter" id="which">
+        <header>
+          <span class="tag">ใช้งาน</span>
+          <h2 class="title">เลือกวิธีลงเวลา</h2>
+          <p class="lede">ตั้งค่าเสร็จแล้ว งานประจำวันมี 3 ทาง ทุกทางต้องผ่านการตรวจของคุณก่อนส่งเข้า Jira</p>
+        </header>
+        <div class="scroll">
+        <table class="routes">
+          <thead><tr><th>อยากทำอะไร</th><th>ใช้แท็บ</th><th>เหมาะกับ</th></tr></thead>
+          <tbody>
+            <tr><td>เลือกการ์ดแล้วลงเวลาเอง</td><td><span class="ui">ลงเวลา</span></td><td>งานที่ทำจริงแต่ไม่อยู่ในปฏิทิน</td></tr>
+            <tr><td>เปลี่ยนประชุมในปฏิทินเป็น worklog</td><td><span class="ui">Mac Calendar</span></td><td>ประชุม วันลา ของทั้งสัปดาห์</td></tr>
+            <tr><td>ส่งประชุมของวันนี้ทีเดียว</td><td><span class="ui">Mac Calendar</span> &rarr; Today Sync</td><td>ปิดวันให้เร็ว</td></tr>
+            <tr><td>ดูว่าสัปดาห์นี้ลงครบหรือยัง</td><td><span class="ui">สรุปรายสัปดาห์</span></td><td>เช็กย้อนหลังและหาวันที่ขาด</td></tr>
+            <tr><td>ตรวจว่ารายการไหนส่งแล้ว</td><td><span class="ui">ประวัติ Sync</span></td><td>ตามรายการที่ผลไม่แน่ชัด</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <!-- ===== BOARD ===== -->
+      <section class="chapter" id="board">
+        <header>
+          <span class="tag">แท็บ ลงเวลา</span>
+          <h2 class="title">ลงเวลาจากบอร์ด</h2>
+        </header>
+        <ol>
+          <li><strong>โหลดงาน</strong> ตรวจ Board IDs แล้วกด <span class="ui">โหลดงานจากบอร์ด</span> การ์ดที่อยู่หลายบอร์ดแสดงครั้งเดียว ถ้าบอร์ดใดไม่พบหรือไม่มีสิทธิ์ แอปข้ามบอร์ดนั้นและแจ้ง ID ให้ทราบ</li>
+          <li><strong>กรองและเลือก</strong> ใช้ช่องค้นหา (Issue, ชื่องาน, บอร์ด, สถานะ) กับตัวกรอง <em>สถานะ</em>, <em>ประเภท</em>, <em>การส่งในวันที่เลือก</em> แล้วติ๊กการ์ด ช่องติ๊กหัวตารางเลือกเฉพาะแถวที่แสดงอยู่</li>
+          <li><strong>ตั้งค่าตั้งต้น</strong> ใส่วันที่เริ่มต้นและชั่วโมงเริ่มต้น แล้วกด <span class="ui">เพิ่มงานที่เลือก</span> การ์ดเข้าคิวรายการรอบันทึก</li>
+          <li><strong>ปรับให้ตรงความจริง</strong> แก้วันที่ ชั่วโมง และรายละเอียดในแต่ละแถว ลบแถวด้วยปุ่ม <span class="ui">ลบ</span> ถ้าทำการ์ดเดียวกันคนละวัน ให้เพิ่มการ์ดนั้นซ้ำอีกครั้ง</li>
+          <li><strong>ตรวจสอบ</strong> กด <span class="ui">ตรวจสอบรายการ</span> ระบบรวมชั่วโมงแยกตามวัน ปุ่มบันทึกจะเปิดก็ต่อเมื่อผ่านการตรวจ</li>
+          <li><strong>บันทึก</strong> กด <span class="ui">บันทึกลง Jira</span> แล้วยืนยัน แอปส่งทีละรายการและหยุดทันทีเมื่อมีรายการล้มเหลวหรือไม่แน่ชัด จากนั้นตรวจประวัติ worklog ใน Jira อีกครั้ง</li>
+        </ol>
+
+        <div class="callout stop">
+          <span class="label">ลงเวลาได้เฉพาะ Task และ Sub-task</span>
+          <p>งานประเภทอื่น เช่น Story, Bug, Epic แสดงเป็นแถวจาง ติ๊กไม่ได้ และเขียนว่า "ลงเวลาไม่ได้" เซิร์ฟเวอร์ปฏิเสธซ้ำอีกชั้นตอนส่ง</p>
+        </div>
+
+        <h3>รายละเอียดที่ควรรู้</h3>
+        <ul>
+          <li>ตัวกรอง <em>การส่งในวันที่เลือก</em> เริ่มต้นที่ <strong>ยังไม่ส่ง</strong> โดยดูจากประวัติในแอปตามวันที่เริ่มต้น ไม่ได้ยืนยันว่า Jira ไม่มี worklog ของการ์ดนั้น</li>
+          <li>รายการจากหน้านี้บันทึกด้วยเวลาเริ่ม <strong>09:00</strong> ของวันที่เลือกตาม Timezone เป็นเวลาอ้างอิง ไม่ใช่เวลาทำงานจริง</li>
+          <li>ส่งได้ไม่เกิน 100 รายการต่อรอบ โหลดได้ไม่เกิน 10 บอร์ด และ 4,000 งานต่อบอร์ด ห้ามลงเวลาวันในอนาคต</li>
+          <li>รายการที่ยังไม่ส่งอยู่ในแท็บเบราว์เซอร์ รีเฟรชแล้วกลับมา แต่ปิดแท็บแล้วหาย</li>
+        </ul>
+      </section>
+
+      <!-- ===== CALENDAR ===== -->
+      <section class="chapter" id="calendar">
+        <header>
+          <span class="tag">แท็บ Mac Calendar</span>
+          <h2 class="title">ลงเวลาจาก Mac Calendar</h2>
+          <p class="lede">อ่านประชุมจาก Calendar.app แล้วเสนอการ์ดและเวลาให้ตรวจก่อนลง Jira ไม่มีการลงเวลาอัตโนมัติ</p>
+        </header>
+
+        <h3>ครั้งแรก: ให้สิทธิ์อ่านปฏิทิน</h3>
+        <ol>
+          <li>ตรวจว่าปฏิทินบริษัท (Microsoft 365 / Exchange) แสดงอยู่ในแอป Calendar ของ Mac แล้ว แอปนี้ไม่ขอรหัสผ่านหรือ token ของ Microsoft</li>
+          <li>เปิดแท็บ Mac Calendar กด <span class="ui">อนุญาตให้อ่าน Calendar</span> แล้วเลือก <strong>Full Calendar Access</strong> ในหน้าต่างของ macOS</li>
+          <li>ครั้งแรกแอปคอมไพล์ตัวอ่านปฏิทินเอง อาจรอสักครู่</li>
+        </ol>
+        <div class="callout">
+          <span class="label">ทำไมต้อง Full Access</span>
+          <p>macOS ไม่มีสิทธิ์อ่านอย่างเดียวสำหรับ Calendar แอปนี้อ่านอย่างเดียวเท่านั้น ไม่แก้ไขหรือลบเหตุการณ์ใดในปฏิทิน ถ้าเคยกดปฏิเสธ ให้เปิดใหม่ที่ System Settings &rarr; Privacy &amp; Security &rarr; Calendars</p>
+        </div>
+
+        <h3>ดึงและตรวจประชุม</h3>
+        <ol>
+          <li><strong>เลือกปฏิทิน</strong> ติ๊กเฉพาะปฏิทินงานของบริษัท ค่าเริ่มต้นคือไม่เลือกอะไร อย่าใช้ "เลือกทุกปฏิทิน" ถ้ามีปฏิทินส่วนตัว</li>
+          <li><strong>เลือกสัปดาห์</strong> ใส่วันที่ในสัปดาห์ หรือกดลูกศร</li>
+          <li>กด <span class="ui">ดึงประชุมจาก Mac</span> ระบบเสนอรายการพร้อมการ์ดตามกฎ</li>
+          <li><strong>ตรวจในตาราง</strong> ติ๊กเฉพาะประชุมที่เข้าร่วมจริง แก้การ์ด วันที่ นาที และรายละเอียดได้</li>
+          <li>กด <span class="ui">ตรวจสอบรายการ</span> แล้ว <span class="ui">บันทึกลง Jira</span> พร้อมยืนยัน</li>
+        </ol>
+
+        <h3>แอปจัดการประชุมแต่ละแบบอย่างไร</h3>
+        <div class="scroll">
+        <table>
+          <thead><tr><th>กรณี</th><th>ผลที่ได้</th></tr></thead>
+          <tbody>
+            <tr><td>ยกเลิก ปฏิเสธ ว่าง หรือ placeholder ส่วนตัว</td><td>ไม่ถูกเสนอ</td></tr>
+            <tr><td>ตรงวันหยุด BOT</td><td>ตัดออกและแจ้งจำนวนที่ตัด</td></tr>
+            <tr><td>ประชุมที่มีเวลาเริ่ม–จบ</td><td>เสนอเวลาตามจริงเป็นนาที ไม่ปัดเต็ม 8 ชั่วโมง</td></tr>
+            <tr><td>ทั้งวันที่ตรงกฎวันลา</td><td>เสนอ 8 ชั่วโมงต่อวันทำงาน</td></tr>
+            <tr><td>ทั้งวันที่ไม่ตรงกฎวันลา</td><td>ไม่เลือกการ์ดให้ คุณเลือกเอง</td></tr>
+            <tr><td>เหตุการณ์หลายวัน</td><td>แยกเป็นรายวันทำงาน</td></tr>
+            <tr><td>เวลาซ้อนกัน</td><td>ติดคำเตือน ไม่ตัดเวลาให้เอง</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3>ป้ายสถานะของแต่ละรายการ</h3>
+        <div class="scroll">
+        <table>
+          <tbody>
+            <tr><td><span class="pill">ไม่มีประวัติในแอป</span></td><td>ยังไม่เคยส่ง เลือกได้</td></tr>
+            <tr><td><span class="pill good">บันทึกแล้ว · ไม่ส่งซ้ำ</span></td><td>ส่งแล้ว ติ๊กไม่ได้</td></tr>
+            <tr><td><span class="pill warn">ต้องตรวจสอบใน Jira</span></td><td>ผลการส่งไม่แน่ชัด ติ๊กไม่ได้จนกว่าจะตรวจ (ดู <a href="#history">ประวัติ Sync</a>)</td></tr>
+            <tr><td><span class="pill bad">ไม่พบรายการตรงกัน · ส่งได้</span></td><td>ตรวจแล้วไม่พบใน Jira ส่งใหม่ได้</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <ul>
+          <li>ตัวกรอง <em>ประวัติการส่ง</em> เริ่มต้นที่ <strong>ยังไม่ส่ง</strong> เลือก <strong>ทั้งหมด</strong> หรือ <strong>ส่งแล้ว</strong> เพื่อดูย้อนหลัง การเปลี่ยนตัวกรองจะเอาติ๊กของแถวที่ซ่อนออก</li>
+          <li>บรรทัด "Jira เดิม + ที่เลือก / เป้าตาม BOT" แสดงชั่วโมงรายวันเพื่อกันลงเกิน</li>
+          <li>ก่อนส่ง แอปดึงปฏิทินอีกรอบและตรวจสิทธิ์การ์ดปลายทางทุกใบ ห้ามย้ายรายการไปวันหยุด BOT และห้ามลงวันอนาคต</li>
+          <li>ปฏิทินที่เลือกและรายการที่ดึงมายังอยู่หลังรีเฟรช (ในแท็บเดิม)</li>
+        </ul>
+      </section>
+
+      <!-- ===== TODAY ===== -->
+      <section class="chapter" id="today">
+        <header>
+          <span class="tag">แท็บ Mac Calendar</span>
+          <h2 class="title">Today Sync</h2>
+          <p class="lede">ปุ่มลัดสำหรับปิดวัน ส่งประชุมของวันนี้ทั้งหมดหลังตรวจรายการในหน้าต่างเดียว</p>
+        </header>
+        <ol>
+          <li>ติ๊กปฏิทินบริษัทก่อน ถ้ายังไม่เลือก จะมีข้อความเตือน</li>
+          <li>กด <span class="ui">Today Sync</span> แอปรีเฟรชประวัติ โหลดปฏิทินวันนี้ และตรวจเวลาที่มีใน Jira</li>
+          <li>หน้าต่าง <strong>ตรวจรายการ Today Sync</strong> เปิดขึ้น แสดงสรุป (วันที่ จำนวน ชั่วโมงรวม เวลาเดิมใน Jira จำนวนที่ข้าม) และตารางประชุมทุกรายการ: ลำดับ ชื่อประชุม การ์ด นาที คำเตือน</li>
+          <li>กด <strong>ตกลง บันทึกลง Jira</strong> เพื่อส่งทุกรายการ หรือ <strong>ยกเลิก</strong> เพื่อไม่ส่งอะไร รายการยังติ๊กค้างในตารางให้แก้เอง</li>
+        </ol>
+        <div class="scroll">
+        <table>
+          <thead><tr><th>รวมเข้ารอบส่ง</th><th>ข้าม</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>ประชุมมีเวลาของวันนี้ที่จับคู่การ์ดได้และยังไม่ส่ง รวมประชุมที่ยังไม่จบและรายการที่มีคำเตือน เช่น เวลาซ้อน (สูงสุด 100 รายการ)</td>
+              <td>รายการที่ส่งแล้วหรือต้องตรวจสอบ, รายการทั้งวัน, รายการที่ยังไม่จับคู่การ์ด</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="callout warn">
+          <span class="label">ก่อนกดตกลง</span>
+          <p>ประชุมที่ยังไม่จบจะถูกส่งด้วยระยะเวลาตามตารางนัด ถ้าเลิกเร็วหรือช้ากว่านั้น ให้ยกเลิกแล้วแก้นาทีในตารางก่อน ถ้าอ่านประวัติหรือเวลาใน Jira ไม่ได้ Today Sync จะไม่ส่ง</p>
+        </div>
+      </section>
+
+      <!-- ===== WEEKLY ===== -->
+      <section class="chapter" id="weekly">
+        <header>
+          <span class="tag">แท็บ สรุปรายสัปดาห์</span>
+          <h2 class="title">สรุปรายสัปดาห์</h2>
+          <p class="lede">อ่าน worklog จริงของคุณจาก Jira มาเทียบเป้าวันละ 8 ชั่วโมง หน้านี้อ่านอย่างเดียว ไม่สร้างหรือเติม worklog ให้</p>
+        </header>
+        <ol>
+          <li>เลือกวันที่ในสัปดาห์ หรือกดลูกศรเลื่อนทีละสัปดาห์</li>
+          <li>ดูสรุป 3 ค่า: บันทึกแล้ว (จ.–ศ.), เป้าหมายสัปดาห์นี้, วันทำงานที่ครบ 8 ชั่วโมง</li>
+          <li>กด <span class="ui">โหลด worklog จาก Jira</span> เมื่ออยากอัปเดตข้อมูลล่าสุด</li>
+        </ol>
+        <div class="scroll">
+        <table>
+          <thead><tr><th>สถานะวัน</th><th>ความหมาย</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill good">ครบ 8 ชั่วโมง</span></td><td>บันทึกถึงเป้าแล้ว</td></tr>
+            <tr><td><span class="pill bad">ยังขาดเวลา</span></td><td>วันที่ผ่านมาแล้วแต่ยังไม่ครบ</td></tr>
+            <tr><td><span class="pill warn">วันนี้ · ยังไม่ครบ</span></td><td>วันนี้ยังลงไม่ถึงเป้า</td></tr>
+            <tr><td><span class="pill">ยังไม่ถึงวัน</span></td><td>วันในอนาคต ไม่นับว่าค้าง</td></tr>
+            <tr><td><span class="pill">วันหยุด BOT</span></td><td>เป้าเป็น 0 ชั่วโมง แสดงชื่อวันหยุด</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <ul>
+          <li>worklog วันเสาร์–อาทิตย์แสดงแยก และไม่นับกับเป้าวันทำงาน นับเฉพาะ worklog ที่ผู้เขียนคือบัญชี Jira ของคุณ</li>
+          <li>ผลถูกเก็บ 5 นาที สลับแท็บกลับมาไม่ต้องโหลดใหม่ ปุ่มโหลดใหม่อ่าน Jira ใหม่เสมอ และแคชถูกล้างทันทีหลังคุณบันทึกเวลาใหม่</li>
+        </ul>
+
+        <h3>สัปดาห์ที่ลงเวลาไม่ครบ</h3>
+        <p>อยู่ในแท็บเดียวกัน เลือก <em>ปี ค.ศ.</em> และ <em>ช่วงตรวจ</em> (4 สัปดาห์ล่าสุด, 12 สัปดาห์ล่าสุด หรือทั้งปี) แล้วกด <span class="ui">ตรวจ worklog</span> ระบบจัดกลุ่มวันทำงานที่ไม่มี worklog หรือน้อยกว่า 8 ชั่วโมงเป็นรายสัปดาห์ กดการ์ดสัปดาห์เพื่อดู worklog ของสัปดาห์นั้นด้านบน</p>
+        <ul>
+          <li>ตรวจถึง "เมื่อวาน" ไม่รวมวันนี้ วันเสาร์–อาทิตย์ และวันหยุด BOT</li>
+          <li>การตรวจทั้งปีอาจใช้เวลาหลายนาที เพราะอ่าน Jira ครั้งเดียวทั้งช่วง</li>
+        </ul>
+
+        <h3>วันหยุด BOT</h3>
+        <ul>
+          <li>ดึงจากหน้าวันหยุดสถาบันการเงินของธนาคารแห่งประเทศไทย เก็บแคชรายปี รีเฟรชเองทุก 24 ชั่วโมง หรือกด <span class="ui">ซิงก์วันหยุด BOT ใหม่</span></li>
+          <li>ถ้าดึงไม่ได้ ใช้แคชเก่าพร้อมแจ้งเตือน ถ้าไม่มีแคชเลย รายการแจ้งเตือนจะไม่ทำงานเพื่อกันสรุปผิด และเป้าในหน้าสรุปรายสัปดาห์เป็นค่าชั่วคราว</li>
+        </ul>
+        <div class="callout warn">
+          <span class="label">ใช้เป็นแนวทาง</span>
+          <p>ปฏิทิน BOT อาจไม่ตรงกับวันหยุดของบริษัท และระบบไม่รู้วันลาส่วนตัวของคุณ</p>
+        </div>
+      </section>
+
+      <!-- ===== HISTORY ===== -->
+      <section class="chapter" id="history">
+        <header>
+          <span class="tag">แท็บ ประวัติ Sync</span>
+          <h2 class="title">ประวัติ Sync และการกันบันทึกซ้ำ</h2>
+          <p class="lede">แสดงสถานะล่าสุดของ worklog ที่แอปส่งหรือพบใน Jira ทั้งจากบอร์ดและ Calendar</p>
+        </header>
+        <ul>
+          <li>ค้นหาด้วยรหัส Issue และกรองสถานะ: บันทึกแล้ว / ต้องตรวจสอบ / ไม่พบรายการตรงกัน</li>
+          <li>แต่ละแถวแสดง Issue วันที่ เวลา แหล่งที่มา (ลงเวลา / Mac Calendar / พบใน Jira) สถานะ รหัส worklog และเวลาที่บันทึก กด <span class="ui">โหลดประวัติใหม่</span> เพื่ออ่านไฟล์อีกครั้ง</li>
+          <li>งานที่ไม่อยู่ในประวัติ <strong>ไม่ได้แปลว่า</strong> ไม่มี worklog ใน Jira</li>
+        </ul>
+
+        <h3>กันบันทึกซ้ำ</h3>
+        <p>ก่อนส่งทุกรายการ แอปอ่าน worklog ของการ์ดนั้นในวันนั้น แล้วข้ามถ้ามี Issue วันที่ ระยะเวลา และรายละเอียดตรงกัน รวมถึงของที่สร้างด้วยมือหรือจากเครื่องอื่น งานช่วงเดียวกันที่รายละเอียดต่างกันถือเป็นคนละงานและส่งได้ ถ้าเช็กไม่ได้ ระบบหยุดและไม่เขียนแถวนั้น</p>
+
+        <h3>เมื่อผลการส่งไม่แน่ชัด</h3>
+        <p>ถ้าเครือข่ายหลุดหลังส่ง ระบบทำเครื่องหมาย <span class="pill warn">ต้องตรวจสอบ</span> และห้ามส่งซ้ำ ทำตามนี้:</p>
+        <ol>
+          <li>เปิดแท็บ <span class="ui">ประวัติ Sync</span></li>
+          <li>กด <span class="ui">ตรวจรายการไม่แน่ชัดใน Jira</span></li>
+          <li>ถ้าพบ worklog ที่ตรงกัน สถานะเป็น <span class="pill good">บันทึกแล้ว</span> ถ้าไม่พบ เป็น <span class="pill bad">ไม่พบรายการตรงกัน</span> และส่งใหม่ได้หลังตรวจเอง</li>
+        </ol>
+        <div class="callout">
+          <span class="label">ข้อจำกัดของการเทียบ</span>
+          <p>เทียบระยะเวลากับรายละเอียดที่ตรงกันทุกตัวอักษร ถ้าถูกแก้ภายหลังหรือมีสิทธิ์จำกัด อาจจับคู่ไม่เจอ ให้เปิด Jira ดูเองก่อนส่งซ้ำ</p>
+        </div>
+      </section>
+
+      <!-- ===== DATA ===== -->
+      <section class="chapter" id="data">
+        <header>
+          <span class="tag">อ้างอิง</span>
+          <h2 class="title">ข้อมูลและความปลอดภัย</h2>
+        </header>
+        <div class="scroll">
+        <table>
+          <thead><tr><th>ข้อมูล</th><th>เก็บที่ไหน</th></tr></thead>
+          <tbody>
+            <tr><td>การตั้งค่า Jira, ประวัติ Sync, แคชวันหยุด BOT, ตัวอ่านปฏิทิน</td><td><code>~/Library/Application Support/Worklog Studio/</code> โฟลเดอร์สิทธิ์ 0700 ไฟล์ 0600 ไม่ถูกลบเมื่ออัปเดตหรือถอนแอป</td></tr>
+            <tr><td>รายการร่าง รายการประชุม ผลสรุปรายสัปดาห์</td><td><code>sessionStorage</code> ของแท็บเบราว์เซอร์ อยู่ได้ 12 ชั่วโมง (ผลรายสัปดาห์ 5 นาที) ไม่เก็บ token ปิดแท็บแล้วหาย ไม่แชร์ข้ามแท็บหรือเครื่อง</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>หลักที่แอปยึด</h3>
+        <ul>
+          <li>เปิดเฉพาะ <code>127.0.0.1</code> ห้ามเปิดผ่าน reverse proxy หรือเครือข่ายร่วมกัน และไม่มีระบบล็อกอินของแอปเอง</li>
+          <li>ใช้บัญชีและ token ของคุณเอง ไม่ใช่บัญชีกลาง Jira เป็นผู้ตัดสินสิทธิ์สร้าง worklog</li>
+          <li>ส่งทีละรายการ หยุดเมื่อมีรายการล้มเหลวหรือไม่แน่ชัด และไม่ย้อนกลับรายการที่สร้างแล้ว</li>
+          <li>ออกแบบสำหรับเวลาที่ทำจริงที่คุณยืนยันเอง ไม่ใช่การสร้าง timesheet ปลอม</li>
+        </ul>
+        <h3>ข้อจำกัด</h3>
+        <ul>
+          <li>ส่งไม่เกิน 100 รายการต่อครั้ง, 10 บอร์ด, 4,000 งานต่อบอร์ด, 30 กฎจับคู่</li>
+          <li>การกันบันทึกซ้ำเป็นแบบพยายามเต็มที่ เทียบจากรายละเอียดที่ตรงกัน ไม่ใช่การรับประกันระดับระบบ</li>
+          <li>EventKit ไม่มีธงประชุมส่วนตัวที่เชื่อถือได้ ระบบกรองเฉพาะ placeholder ที่ชัดเจน จึงต้องเลือกเฉพาะปฏิทินงาน</li>
+        </ul>
+      </section>
+
+      <!-- ===== FAQ ===== -->
+      <section class="chapter" id="faq">
+        <header>
+          <span class="tag">อ้างอิง</span>
+          <h2 class="title">แก้ปัญหาที่พบบ่อย</h2>
+        </header>
+        <details>
+          <summary>เปิดแอปแล้วขึ้นว่าพอร์ต 8765 ถูกใช้งาน</summary>
+          <p>มีตัวเดิมรันอยู่ ให้หยุดด้วย <kbd>Ctrl</kbd> + <kbd>C</kbd> ในหน้าต่าง Terminal เดิม ถ้าปิดหน้าต่างนั้นไปแล้ว ดูวิธีใน <a href="#install">ติดตั้งและเปิดแอป</a> หัวข้อ "ปิด Terminal ไปแล้ว"</p>
+        </details>
+        <details>
+          <summary>ทดสอบการเชื่อมต่อไม่ผ่าน</summary>
+          <p>ตรวจว่า URL ขึ้นต้นด้วย <code>https://</code> และเป็นโดเมน <code>.atlassian.net</code> อีเมลตรงกับบัญชีที่สร้าง token, token ยังไม่หมดอายุ และบัญชีมีสิทธิ์ Browse projects / Work on issues ถ้าใส่ Board ID เป็น URL ทั้งเส้น ให้ใส่เฉพาะตัวเลข</p>
+        </details>
+        <details>
+          <summary>โหลดบอร์ดแล้วบางบอร์ดถูกข้าม</summary>
+          <p>แอปแจ้ง ID ของบอร์ดที่ไม่พบหรือไม่มีสิทธิ์ ตรวจ ID จาก URL ของบอร์ด หรือขอสิทธิ์เข้าถึงบอร์ดนั้น บอร์ดอื่นยังใช้ได้ตามปกติ</p>
+        </details>
+        <details>
+          <summary>ติ๊กการ์ดไม่ได้</summary>
+          <p>การ์ดนั้นเป็นประเภทที่ไม่ใช่ Task หรือ Sub-task (เช่น Story, Bug, Epic) ให้เลือก Task หรือ Sub-task ของงานนั้นแทน</p>
+        </details>
+        <details>
+          <summary>อ่านปฏิทินไม่ได้</summary>
+          <p>ตรวจที่ System Settings &rarr; Privacy &amp; Security &rarr; Calendars ให้ Full Access กับ Worklog Studio Calendar Reader แล้วเปิดหน้านี้ใหม่ ถ้าไม่พบคอมไพเลอร์ ให้ติดตั้ง <code>xcode-select --install</code></p>
+        </details>
+        <details>
+          <summary>ขึ้น "Unable to block on applications" ตอนอ่านปฏิทิน</summary>
+          <p>เป็นข้อผิดพลาดชั่วคราวตอนเรียกตัวอ่านปฏิทินซ้อนกัน เวอร์ชัน 0.1.1 ลองใหม่ให้เองสูงสุด 3 ครั้ง ถ้ายังพบ ให้รีเฟรชหน้าอีกครั้ง</p>
+        </details>
+        <details>
+          <summary>Today Sync ไม่เปิดหน้าต่างตรวจรายการ</summary>
+          <p>อ่านข้อความใต้ปุ่มดึงประชุม สาเหตุทั่วไปคือยังไม่ได้เลือกปฏิทิน อ่านประวัติหรือเวลาเดิมใน Jira ไม่ได้ หรือวันนี้ไม่มีประชุมที่พร้อมส่ง (ส่งแล้ว ทั้งวัน หรือยังไม่จับคู่การ์ด)</p>
+        </details>
+        <details>
+          <summary>รายการติด "ต้องตรวจสอบ" ส่งซ้ำไม่ได้</summary>
+          <p>ไปที่ประวัติ Sync กด <strong>ตรวจรายการไม่แน่ชัดใน Jira</strong> เพื่อให้ระบบหาว่ามี worklog อยู่แล้วหรือไม่ ถ้าไม่แน่ใจ ให้เปิด Jira ดูประวัติ worklog ของการ์ดนั้นเอง</p>
+        </details>
+        <details>
+          <summary>รีเฟรชแล้วข้อมูลที่โหลดไว้หาย</summary>
+          <p>ข้อมูลเก็บไว้ในแท็บเดิมเท่านั้น ถ้าปิดแท็บ ใช้เบราว์เซอร์อื่น หรือผ่านไปเกิน 12 ชั่วโมง ต้องโหลดใหม่ เมื่อเปิดหน้า ช่อง Status บอกผลการกู้คืน</p>
+        </details>
+        <details>
+          <summary>ถอนการติดตั้ง</summary>
+          <p>รัน <code>brew uninstall worklog-studio</code> ข้อมูลใน <code>~/Library/Application Support/Worklog Studio/</code> ยังอยู่ ลบเองถ้าไม่ต้องการ และควรเพิกถอน API token ที่หน้า Atlassian ด้วย</p>
+        </details>
+      </section>
+
+      <footer>Worklog Studio 0.1.1 · ไฟล์เดี่ยว เปิดด้วยเบราว์เซอร์ได้โดยไม่ต้องรันแอป</footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  (function () {
+    // Remembered progress through first-run setup (per browser; page works without it).
+    var KEY = 'worklogStudio.guide.setup';
+    var steps = Array.prototype.slice.call(document.querySelectorAll('#steps .step'));
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
+
+    function paint() {
+      var done = 0;
+      steps.forEach(function (step) {
+        var box = step.querySelector('input');
+        step.classList.toggle('done', box.checked);
+        if (box.checked) done += 1;
+      });
+      document.getElementById('progressText').textContent = 'ทำแล้ว ' + done + ' / ' + steps.length + ' ขั้น';
+      document.getElementById('progressBar').style.width = (done / steps.length * 100) + '%';
+    }
+    steps.forEach(function (step) {
+      var box = step.querySelector('input');
+      box.checked = Boolean(saved[step.dataset.step]);
+      box.addEventListener('change', function () {
+        saved[step.dataset.step] = box.checked;
+        try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) { /* storage blocked */ }
+        paint();
+      });
+    });
+    paint();
+
+    // Highlight the chapter being read in the side index.
+    var links = {};
+    Array.prototype.forEach.call(document.querySelectorAll('.rail a'), function (a) { links[a.getAttribute('href').slice(1)] = a; });
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          Object.keys(links).forEach(function (id) { links[id].setAttribute('aria-current', id === entry.target.id ? 'true' : 'false'); });
+        });
+      }, { rootMargin: '-15% 0px -70% 0px' });
+      document.querySelectorAll('.chapter').forEach(function (section) { observer.observe(section); });
+    }
+  })();
+</script>
+</body>
+</html>
